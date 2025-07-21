@@ -1,0 +1,378 @@
+import React, { useState, useEffect } from "react";
+import ResultsTable from "./ResultsTable";
+import UniversityAccordion from "./UniversityAccordion";
+
+const CourseFilter = () => {
+  const [countries, setCountries] = useState([]);
+  const [institutions, setInstitutions] = useState([]);
+  const [subjectAreas, setSubjectAreas] = useState([]);
+  const [pacificCourseCode, setPacificCourseCode] = useState("");
+  const [pacificSubjectAreas, setPacificSubjectAreas] = useState([]);
+  const [uopSchools, setUopSchools] = useState([]);
+  const [results, setResults] = useState([]);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState("");
+  const [selectedInstitution, setSelectedInstitution] = useState("");
+  const [selectedSubjectArea, setSelectedSubjectArea] = useState("");
+  const [selectedSchool, setSelectedSchool] = useState("");
+  const [selectedPacificSubjectArea, setSelectedPacificSubjectArea] = useState("");
+  const [allCourses, setAllCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filteredUniversities, setFilteredUniversities] = useState([]);
+  const isSearchDisabled = !selectedCountry && !selectedInstitution && !selectedSubjectArea;
+  const [searchClicked, setSearchClicked] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+
+const dropdownStyle = {
+  width: "100%",
+  maxWidth: "500px",
+  padding: "14px",
+  borderRadius: "6px",
+  border: "1px solid #ccc",
+  fontSize: "17px",
+  lineHeight: "1.6",
+  marginBottom: "20px",
+  backgroundColor: "#fff",
+  backgroundImage: `url("data:image/svg+xml;utf8,<svg fill='%23232323' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>")`,
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 12px center",
+  backgroundSize: "16px",
+  appearance: "none",        // suppress native arrow
+  WebkitAppearance: "none",
+};
+
+  const handleClear = () => {
+    setSelectedCountry("");
+    setSelectedInstitution("");
+    setSelectedSubjectArea("");
+    setSelectedSchool("");
+    setSelectedPacificSubjectArea("");
+    setPacificCourseCode("");
+    setResults([]);
+    setShowTooltip(false);
+  };
+
+  // Fetch all static JSON data from Gists
+  useEffect(() => {
+  const loadAll = async () => {
+    try {
+      const schoolsRes = await fetch("/uop_schools.json");
+      const pacificSubjectsRes = await fetch("/sujects.json");
+      const equivalentsRes = await fetch("/international_universities.json");
+
+      const schoolsData = await schoolsRes.json(); // ✅ don't comment this out
+      const pacificSubjectsData = await pacificSubjectsRes.json();
+      const courseEquivalentsData = await equivalentsRes.json();
+
+      console.log("✅ Loaded courseEquivalentsData:", courseEquivalentsData);
+
+      setUopSchools(schoolsData.schools);  // ✅ will now work
+      setPacificSubjectAreas(pacificSubjectsData.subjects);
+      setAllCourses(courseEquivalentsData.universities);
+
+      // Prepare dropdowns
+      const uniqueCountries = [
+        ...new Set(courseEquivalentsData.universities.map((c) => c.country)),
+      ];
+      const uniqueInstitutions = [
+        ...new Set(courseEquivalentsData.universities.map((c) => c.partner_university)),
+      ];
+
+      setCountries(uniqueCountries.sort());
+      setInstitutions(uniqueInstitutions.sort());
+    } catch (error) {
+      console.error("Error loading course data:", error);
+     
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  loadAll();
+  
+
+}, []);
+
+useEffect(() => {
+  if (selectedCountry && allCourses.length > 0) {
+    const matchedUnis = allCourses.filter(
+      (course) => course.country === selectedCountry
+    );
+
+    const uniMap = new Map();
+
+    matchedUnis.forEach((entry) => {
+      const key = `${entry.partner_university}_${entry.country}`;
+
+      if (!uniMap.has(key)) {
+        uniMap.set(key, {
+          partner_university: entry.partner_university,
+          country: entry.country,
+          courses: [], // initialize empty array
+        });
+      }
+
+      // Push this course to the corresponding university
+      uniMap.get(key).courses.push(entry);
+    });
+
+    setFilteredUniversities(Array.from(uniMap.values()));
+  } else {
+    setFilteredUniversities([]);
+  }
+}, [selectedCountry, allCourses]);
+ const handleFilter = () => {
+  const filtered = allCourses.filter((course) => {
+    return (
+      (!selectedCountry || course.country === selectedCountry) &&
+      (!selectedInstitution || course.partner_university === selectedInstitution) &&
+      (!selectedSubjectArea || course.partner_course_subject === selectedSubjectArea) &&
+      (!selectedSchool || course.pacific_school === selectedSchool) &&
+      (!selectedPacificSubjectArea || course.pacific_subject_area === selectedPacificSubjectArea) &&
+      (!pacificCourseCode || course.pacific_course_code.toLowerCase().includes(pacificCourseCode.toLowerCase()))
+    );
+  });
+
+  // Group courses by university
+  const uniMap = new Map();
+  filtered.forEach((entry) => {
+    const key = `${entry.partner_university}_${entry.country}`;
+    if (!uniMap.has(key)) {
+      uniMap.set(key, {
+        partner_university: entry.partner_university,
+        country: entry.country,
+        courses: [],
+      });
+    }
+    uniMap.get(key).courses.push(entry);
+  });
+
+   const grouped = Array.from(uniMap.values());
+
+  setSearchClicked(true);
+  setResults(filtered);
+  setFilteredUniversities(grouped); // ✅ Now accordion will show correct data
+  setShowResults(true); // ✅ Ensure this is true
+};
+
+
+  const tableHeaderStyle = {
+  padding: "10px",
+  backgroundColor: "#Ff671d",
+  color: "white",
+  textAlign: "left",
+  fontWeight: "bold",
+};
+
+const tableCellStyle = {
+  padding: "10px",
+  borderBottom: "1px solid #ccc",
+};
+
+
+  return (
+
+    <div
+      style={{
+        fontFamily: "Neuzeit Grotesk Regular, Ramaraj Regular" ,
+        maxWidth: "1200px",
+        margin: "0 auto",
+        padding: "40px 20px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+
+{/* Two-column layout */}
+<div
+  style={{
+     width: "90%",           // increase from previous 60% or so
+    maxWidth: "1200px",
+    display: "flex",
+    justifyContent: "center",
+    gap: "80px",
+    alignItems: "flex-start",
+    marginBottom: "40px",
+  }}
+>
+  {/*  International Courses */}
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      gap: "10px",
+      flex: 1,
+      minHeight: "420px",
+      minWidth: "400px"
+    }}
+  >  <h3 style={{ fontSize: "26px", marginBottom: "20px", textAlign: "left", fontFamily: "Archivo Black" }}>
+
+
+      International Courses
+    </h3>
+
+   <label style={{ fontFamily: "Ramaraja Regular" }}>Country:</label>
+   <select
+  value={selectedCountry}
+  onChange={(e) => setSelectedCountry(e.target.value)}
+  style={dropdownStyle}
+>
+  <option value=""> </option>
+ {countries
+  .filter((c) => c && c.trim() !== "")
+  .map((c, index) => (
+    <option key={`${c}-${index}`} value={c}>
+      {c}
+    </option>
+))}
+
+</select>
+
+
+    <label>University / Institution:</label>
+    <select
+  value={selectedInstitution}
+  onChange={(e) => setSelectedInstitution(e.target.value)}
+  style={dropdownStyle}
+>
+  <option value=""> </option>
+ {institutions
+  .filter((i) => i && i.trim() !== "")
+  .map((i, index) => (
+    <option key={`${i}-${index}`} value={i}>
+      {i}
+    </option>
+))}
+</select>
+
+   <label>Subject Area:</label>
+<select
+  value={selectedSubjectArea}
+  onChange={(e) => setSelectedSubjectArea(e.target.value)}
+  style={dropdownStyle}
+>
+  <option value=""> </option>
+  {subjectAreas
+    .filter((s) => s && s.trim() !== "") // remove empty/null values
+    .map((s, index) => (
+      <option key={`${s}-${index}`} value={s}>
+        {s}
+      </option>
+    ))}
+</select>
+
+  </div>
+
+  {/* 🎓 UOP Equivalent Courses */}
+  <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, minWidth: "400px", fontFamily: "Archivo Black", alignItems: "flex-start" }}>
+  <h3 style={{ fontSize: "26px", marginBottom: "20px", textAlign: "left", fontFamily: "Archivo Black" }}>
+    UOP Equivalent Courses
+  </h3>
+
+    <label>School:</label>
+    <select
+      value={selectedSchool}
+      onChange={(e) => setSelectedSchool(e.target.value)}
+      style={dropdownStyle}
+    >
+      <option value=""> </option>
+      {uopSchools.map((s) => (
+        <option key={s} value={s}>
+          {s}
+        </option>
+      ))}
+    </select>
+
+    <label style={{ marginBottom: "5px" }}>Pacific Subject Area:</label>
+    <select
+      value={selectedPacificSubjectArea}
+      onChange={(e) => setSelectedPacificSubjectArea(e.target.value)}
+      style={dropdownStyle}
+    >
+      <option value=""> </option>
+      {pacificSubjectAreas.map((s) => (
+        <option key={s} value={s}>{s}</option>
+      ))}
+    </select>
+
+    <label style={{ marginBottom: "5px" }}>Course Code:</label>
+    <input
+      type="text"
+      value={pacificCourseCode}
+      onChange={(e) => setPacificCourseCode(e.target.value)}
+      placeholder="e.g., HIST 120"
+      style={{
+      padding: "10px",
+      fontSize: "16px",
+      borderRadius: "6px",
+      border: "1px solid #ccc",
+      width: "480%",
+      maxWidth: "480px",
+      height:"200%",
+      maxHeight: "200px",
+      }}
+    />
+  </div>
+</div>
+  {/* 🔍 Buttons */}
+
+<div style={{ display: "flex", justifyContent: "center", gap: "20px", marginBottom: "0px", alignItems: "flex-start" }}>
+
+<button
+  onClick={handleFilter}
+  disabled={isSearchDisabled}
+  title="Please be more specific in your search"
+  style={{
+    backgroundColor: "#E65300",
+    color: "#fff",
+    border: "none",
+    padding: "10px 28px",
+    fontWeight: "bold",
+    fontSize: "16px",
+    borderRadius: "6px",
+    width: "120px",
+    cursor: isSearchDisabled ? "not-allowed" : "pointer",
+    opacity: isSearchDisabled ? 0.6 : 1,
+  }}
+>
+  Search
+</button>
+
+    <button
+      onClick={handleClear}
+      style={{
+        backgroundColor: "#A29889",
+        color: "#fff",
+        border: "none",
+        padding: "10px 28px",
+        fontWeight: "bold",
+        fontSize: "16px",
+        borderRadius: "6px",
+        width: "120px",
+        cursor: "pointer",
+      }}
+    >
+      Clear
+    </button>
+  </div>
+ 
+
+
+{showResults && results.length > 0 && (
+  <UniversityAccordion universities={results} />
+)}
+
+
+ 
+</div> 
+
+  );
+};
+
+
+export default CourseFilter;
+
