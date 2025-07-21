@@ -58,24 +58,19 @@ const dropdownStyle = {
   useEffect(() => {
   const loadAll = async () => {
     try {
-      const schoolsRes = await fetch(
-        "https://gist.githubusercontent.com/farheen-shaikh530/babe5bf8a55e7648e6c5176ce3de2860/raw/"
-      );
-      const pacificSubjectsRes = await fetch(
-        "https://gist.githubusercontent.com/farheen-shaikh530/22fbd4686a5cd14cc92781038b0f8cfa/raw/"
-      );
-      const equivalentsRes = await fetch(
-        "https://gist.githubusercontent.com/farheen-shaikh530/714ed972644392cff226383f5de66b66/raw/f52d7566afaf4105a2eb725bf2b1feb69c34fc57/international_universities.json"
+      const schoolsRes = await fetch("/uop_schools.json");
+      const pacificSubjectsRes = await fetch("/sujects.json");
+      const equivalentsRes = await fetch("/international_universities.json");
 
-      );
-
-      const schoolsData = await schoolsRes.json();
+      const schoolsData = await schoolsRes.json(); // ✅ don't comment this out
       const pacificSubjectsData = await pacificSubjectsRes.json();
       const courseEquivalentsData = await equivalentsRes.json();
 
-      setUopSchools(schoolsData.schools);
+      console.log("✅ Loaded courseEquivalentsData:", courseEquivalentsData);
+
+      setUopSchools(schoolsData.schools);  // ✅ will now work
       setPacificSubjectAreas(pacificSubjectsData.subjects);
-      setAllCourses(courseEquivalentsData.universities); // Use universities directly
+      setAllCourses(courseEquivalentsData.universities);
 
       // Prepare dropdowns
       const uniqueCountries = [
@@ -89,12 +84,16 @@ const dropdownStyle = {
       setInstitutions(uniqueInstitutions.sort());
     } catch (error) {
       console.error("Error loading course data:", error);
+     
     } finally {
       setLoading(false);
     }
   };
 
+
   loadAll();
+  
+
 }, []);
 
 useEffect(() => {
